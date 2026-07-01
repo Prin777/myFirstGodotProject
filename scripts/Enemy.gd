@@ -14,6 +14,8 @@ var player: Node2D
 var health := max_health
 var state := "idle"
 var attack_cooldown := 0.0
+var current_attack_animation := "attack1"
+var next_attack_index := 1
 var hurt_time := 0.0
 var wander_target := Vector2.ZERO
 var sprite: AnimatedSprite2D
@@ -44,6 +46,8 @@ func _physics_process(delta: float) -> void:
 		state = "attack"
 		if attack_cooldown <= 0.0:
 			attack_cooldown = 0.8
+			current_attack_animation = "attack%d" % next_attack_index
+			next_attack_index = 2 if next_attack_index == 1 else 1
 			if player.has_method("take_damage"):
 				player.take_damage(damage)
 	elif distance <= detection_range:
@@ -124,7 +128,9 @@ func _build_warrior_frames(faction: String) -> SpriteFrames:
 	frames.remove_animation("default")
 	_add_animation_frames(frames, "idle", idle_path, 8, true)
 	_add_animation_frames(frames, "move", base + "Warrior_Run.png", 6, true)
-	_add_animation_frames(frames, "attack", base + "Warrior_Attack1.png", 4, false)
+	_add_animation_frames(frames, "attack1", base + "Warrior_Attack1.png", 4, false)
+	_add_animation_frames(frames, "attack2", base + "Warrior_Attack2.png", 4, false)
+	_add_animation_frames(frames, "guard", base + "Warrior_Guard.png", 4, false)
 	return frames
 
 func _add_animation_frames(frames: SpriteFrames, animation: StringName, path: String, frame_count: int, loop: bool) -> void:
@@ -147,6 +153,6 @@ func _update_visuals(to_player: Vector2) -> void:
 	body.modulate = Color(1.0, 0.45, 0.45) if hurt_time > 0.0 else Color.WHITE
 	body.rotation = sin(Time.get_ticks_msec() * 0.018 + global_position.x) * 0.04 if state == "chase" else 0.0
 	if is_instance_valid(sprite):
-		var desired := "attack" if state == "attack" else ("move" if state == "chase" else "idle")
+		var desired := current_attack_animation if state == "attack" else ("move" if state == "chase" else "idle")
 		if sprite.animation != desired:
 			sprite.play(desired)

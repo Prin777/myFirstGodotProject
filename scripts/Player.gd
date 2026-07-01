@@ -13,6 +13,8 @@ var facing := Vector2.RIGHT
 var state := "idle"
 var attack_time := 0.0
 var attack_cooldown := 0.0
+var current_attack_animation := "attack1"
+var next_attack_index := 1
 var invulnerable_time := 0.0
 var hit_targets: Array[Node] = []
 var sprite: AnimatedSprite2D
@@ -69,8 +71,10 @@ func take_damage(amount: int) -> void:
 
 func _start_attack() -> void:
 	state = "attack"
-	attack_time = 0.18
-	attack_cooldown = 0.42
+	current_attack_animation = "attack%d" % next_attack_index
+	next_attack_index = 2 if next_attack_index == 1 else 1
+	attack_time = 0.34
+	attack_cooldown = 0.48
 	hit_targets.clear()
 
 	var aim := get_global_mouse_position() - global_position
@@ -142,7 +146,9 @@ func _build_warrior_frames(faction: String) -> SpriteFrames:
 	frames.remove_animation("default")
 	_add_animation_frames(frames, "idle", idle_path, 8, true)
 	_add_animation_frames(frames, "move", base + "Warrior_Run.png", 6, true)
-	_add_animation_frames(frames, "attack", base + "Warrior_Attack1.png", 4, false)
+	_add_animation_frames(frames, "attack1", base + "Warrior_Attack1.png", 4, false)
+	_add_animation_frames(frames, "attack2", base + "Warrior_Attack2.png", 4, false)
+	_add_animation_frames(frames, "guard", base + "Warrior_Guard.png", 4, false)
 	return frames
 
 func _add_animation_frames(frames: SpriteFrames, animation: StringName, path: String, frame_count: int, loop: bool) -> void:
@@ -167,6 +173,6 @@ func _update_visuals() -> void:
 	else:
 		body.rotation = 0.0
 	if is_instance_valid(sprite):
-		var desired := "attack" if state == "attack" else ("move" if state == "move" else "idle")
+		var desired := current_attack_animation if state == "attack" else ("move" if state == "move" else "idle")
 		if sprite.animation != desired:
 			sprite.play(desired)
