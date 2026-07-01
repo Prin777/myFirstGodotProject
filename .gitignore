@@ -1,0 +1,6 @@
+itch_*.html
+*.tmp
+.godot/
+assets/*.zip
+assets/tiny_swords/*
+!assets/tiny_swords/README.md
