@@ -4,3 +4,4 @@ itch_*.html
 assets/*.zip
 assets/tiny_swords/*
 !assets/tiny_swords/README.md
+!assets/tiny_swords/Tiny Swords Free Pack 资源清单.md
