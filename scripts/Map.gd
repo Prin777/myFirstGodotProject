@@ -189,7 +189,7 @@ func _add_forests() -> void:
 		Vector2(1086, 526), Vector2(1138, 556), Vector2(1192, 528), Vector2(1168, 620),
 	]:
 		var index: int = int(abs(position.x + position.y)) % 4 + 1
-		_add_decoration(tree_base + "Tree%d.png" % index, position, 0.72)
+		_add_tree_decoration(tree_base + "Tree%d.png" % index, position, 0.72)
 
 func _add_ground_details() -> void:
 	var decor_base := TERRAIN_BASE + "Decorations/"
@@ -231,6 +231,57 @@ func _add_decoration(path: String, decoration_position: Vector2, scale_amount: f
 	sprite.flip_h = flip_h
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	generated_sprites.add_child(sprite)
+
+func _add_tree_decoration(path: String, decoration_position: Vector2, scale_amount: float, flip_h := false) -> void:
+	if not _can_place_tree(decoration_position, scale_amount):
+		return
+	var texture := load(path) as Texture2D
+	if texture == null:
+		return
+
+	var frame_size := Vector2(float(texture.get_height()), float(texture.get_height()))
+	var atlas := AtlasTexture.new()
+	atlas.atlas = texture
+	atlas.region = Rect2(Vector2.ZERO, frame_size)
+
+	var sprite := Sprite2D.new()
+	sprite.texture = atlas
+	sprite.position = decoration_position
+	sprite.scale = Vector2(scale_amount, scale_amount)
+	sprite.flip_h = flip_h
+	sprite.z_as_relative = false
+	sprite.z_index = int(_tree_trunk_center(decoration_position, scale_amount).y)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	generated_sprites.add_child(sprite)
+
+	_add_tree_collision(decoration_position, scale_amount)
+
+func _add_tree_collision(decoration_position: Vector2, scale_amount: float) -> void:
+	var trunk_center := _tree_trunk_center(decoration_position, scale_amount)
+	var trunk_size := Vector2(26.0, 28.0) * scale_amount
+	_add_static_rect(Rect2(trunk_center - trunk_size * 0.5, trunk_size))
+
+func _can_place_tree(decoration_position: Vector2, scale_amount: float) -> bool:
+	var trunk_center := _tree_trunk_center(decoration_position, scale_amount)
+	var sample_offsets: Array[Vector2] = [
+		Vector2.ZERO,
+		Vector2(-18, 0) * scale_amount,
+		Vector2(18, 0) * scale_amount,
+		Vector2(0, 18) * scale_amount,
+	]
+	for offset: Vector2 in sample_offsets:
+		if not _is_land_world_position(trunk_center + offset):
+			return false
+	return true
+
+func _tree_trunk_center(decoration_position: Vector2, scale_amount: float) -> Vector2:
+	return decoration_position + Vector2(0, 58.0 * scale_amount)
+
+func _is_land_world_position(world_position: Vector2) -> bool:
+	var local := world_position - MAP_ORIGIN
+	var column := int(floor(local.x / float(CELL_SIZE)))
+	var row := int(floor(local.y / float(CELL_SIZE)))
+	return _is_land_cell(column, row)
 
 func _is_land_cell(column: int, row: int) -> bool:
 	if row < 0 or row >= MAP_ROWS or column < 0 or column >= MAP_COLUMNS:

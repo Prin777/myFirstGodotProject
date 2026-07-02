@@ -10,6 +10,7 @@ var ui: GameUI
 var map: AdventureMap
 var enemies_alive := 0
 var is_running := false
+var selected_character: Dictionary = {}
 
 func _ready() -> void:
 	randomize()
@@ -26,12 +27,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart") and not is_running:
 		_restart_game()
 
-func _start_game() -> void:
+func _start_game(character_config: Dictionary = {}) -> void:
 	_clear_run()
+	if not character_config.is_empty():
+		selected_character = character_config.duplicate()
+	elif selected_character.is_empty():
+		selected_character = ui.get_selected_character()
 	is_running = true
 	ui.show_hud()
 
 	player = PlayerScene.instantiate() as Player
+	player.set_character(selected_character)
 	player.global_position = Vector2(180, 370)
 	player.health_changed.connect(ui.set_health)
 	player.died.connect(_on_player_died)

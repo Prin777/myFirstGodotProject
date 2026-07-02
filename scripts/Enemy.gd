@@ -8,21 +8,28 @@ signal died
 @export var damage := 1
 @export var detection_range := 300.0
 @export var attack_range := 42.0
+@export var personal_space := 54.0
+@export var attack_windup_time := 0.28
+@export var attack_recovery_time := 1.15
 
 var player_path: NodePath
 var player: Node2D
 var health := max_health
 var state := "idle"
 var attack_cooldown := 0.0
+var attack_windup := 0.0
+var attack_has_hit := false
 var current_attack_animation := "attack1"
 var next_attack_index := 1
 var hurt_time := 0.0
 var wander_target := Vector2.ZERO
 var sprite: AnimatedSprite2D
+var sprite_frame_height := 192.0
 
 @onready var body: Node2D = $Body
 
 func _ready() -> void:
+	z_as_relative = false
 	health = max_health
 	wander_target = global_position
 	_setup_sprite()
@@ -32,6 +39,7 @@ func _physics_process(delta: float) -> void:
 	if state == "dead":
 		return
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
+	attack_windup = maxf(0.0, attack_windup - delta)
 	hurt_time = maxf(0.0, hurt_time - delta)
 	if not is_instance_valid(player):
 		_resolve_player()
@@ -41,15 +49,17 @@ func _physics_process(delta: float) -> void:
 
 	var to_player := player.global_position - global_position
 	var distance := to_player.length()
-	if distance <= attack_range:
+	if state == "attack" and not attack_has_hit and attack_windup <= 0.0:
+		_apply_attack_hit(distance)
+
+	if distance <= attack_range or distance <= personal_space:
 		velocity = Vector2.ZERO
-		state = "attack"
-		if attack_cooldown <= 0.0:
-			attack_cooldown = 0.8
-			current_attack_animation = "attack%d" % next_attack_index
-			next_attack_index = 2 if next_attack_index == 1 else 1
-			if player.has_method("take_damage"):
-				player.take_damage(damage)
+		if attack_cooldown <= 0.0 and attack_windup <= 0.0:
+			_start_attack()
+		elif attack_windup > 0.0:
+			state = "attack"
+		else:
+			state = "idle"
 	elif distance <= detection_range:
 		state = "chase"
 		velocity = to_player.normalized() * speed
@@ -60,6 +70,7 @@ func _physics_process(delta: float) -> void:
 		velocity = (wander_target - global_position).normalized() * speed * 0.35
 
 	move_and_slide()
+	z_index = int(global_position.y)
 	_update_visuals(to_player)
 
 func take_damage(amount: int) -> void:
@@ -71,6 +82,23 @@ func take_damage(amount: int) -> void:
 		state = "dead"
 		died.emit()
 		queue_free()
+
+func _start_attack() -> void:
+	state = "attack"
+	attack_cooldown = attack_windup_time + attack_recovery_time
+	attack_windup = attack_windup_time
+	attack_has_hit = false
+	current_attack_animation = "attack%d" % next_attack_index
+	next_attack_index = 2 if next_attack_index == 1 else 1
+	if is_instance_valid(sprite):
+		sprite.play(current_attack_animation)
+
+func _apply_attack_hit(distance: float) -> void:
+	attack_has_hit = true
+	if distance > attack_range + 8.0:
+		return
+	if player.has_method("take_damage"):
+		player.take_damage(damage)
 
 func _resolve_player() -> void:
 	if player_path != NodePath():
@@ -112,8 +140,8 @@ func _setup_sprite() -> void:
 		sprite.sprite_frames = frames
 		sprite.animation = "idle"
 		sprite.play()
-		sprite.scale = Vector2(0.52, 0.52)
-		sprite.position = Vector2(0, -15)
+		sprite.scale = Vector2.ONE * _sprite_scale_for_height(sprite_frame_height)
+		sprite.position = Vector2(0, -18)
 		body.add_child(sprite)
 	else:
 		_draw_body()
@@ -123,6 +151,9 @@ func _build_warrior_frames(faction: String) -> SpriteFrames:
 	var idle_path := base + "Warrior_Idle.png"
 	if not ResourceLoader.exists(idle_path):
 		return null
+	var idle_texture := load(idle_path) as Texture2D
+	if idle_texture != null:
+		sprite_frame_height = float(idle_texture.get_height())
 
 	var frames := SpriteFrames.new()
 	frames.remove_animation("default")
@@ -146,6 +177,9 @@ func _add_animation_frames(frames: SpriteFrames, animation: StringName, path: St
 		atlas.atlas = texture
 		atlas.region = Rect2(Vector2(frame_size.x * index, 0), frame_size)
 		frames.add_frame(animation, atlas)
+
+func _sprite_scale_for_height(frame_height: float) -> float:
+	return 106.0 / frame_height
 
 func _update_visuals(to_player: Vector2) -> void:
 	if abs(to_player.x) > 4.0:
